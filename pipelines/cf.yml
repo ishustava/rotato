@@ -1,0 +1,128 @@
+---
+groups:
+- name: deploy
+  jobs:
+  - bbl-up
+  - deploy-cf
+- name: delete
+  jobs:
+  - delete-cf
+  - bbl-destroy
+
+
+resources:
+- name: cf-deployment-concourse-tasks
+  type: git
+  source:
+    branch: master
+    uri: https://github.com/cloudfoundry/cf-deployment-concourse-tasks.git
+- name: cf-deployment
+  type: git
+  source:
+    branch: master
+    uri: https://github.com/cloudfoundry/cf-deployment.git
+- name: maxime-env-director-state
+  type: git
+  source:
+    branch: master
+    uri: git@github.com:cloudfoundry/maxime-env.git
+    private_key: ((maxime-env-read-write-deploy-key))
+    paths:
+    - bbl-state
+
+jobs:
+- name: bbl-up
+  serial: true
+  build_logs_to_retain: 100
+  plan:
+  - aggregate:
+    - get: maxime-env-director-state
+    - get: cf-deployment-concourse-tasks
+  - task: bbl-up
+    file: cf-deployment-concourse-tasks/bbl-up/task.yml
+    params:
+      BBL_IAAS: gcp
+      BBL_GCP_SERVICE_ACCOUNT_KEY: google_account_creds.json
+      BBL_GCP_REGION: us-central1
+      LB_DOMAIN: maxime-test.cf-app.com
+      BBL_LB_CERT: ((maxime-env-cf-lb-cert))
+      BBL_LB_KEY: ((maxime-env-cf-lb-key))
+      BBL_ENV_NAME: rotato
+      BBL_STATE_DIR: test-rotation
+    input_mapping:
+      bbl-state: maxime-env-director-state
+      bbl-config: maxime-env-director-state
+    ensure:
+      put: maxime-env-director-state
+      params:
+        repository: updated-bbl-state
+        rebase: true
+
+- name: deploy-cf
+  build_logs_to_retain: 100
+  plan:
+  - aggregate:
+    - get: cf-deployment-concourse-tasks
+    - get: cf-deployment
+    - get: maxime-env-director-state
+      passed: [bbl-up]
+  - task: bosh-upload-stemcell
+    file: cf-deployment-concourse-tasks/bosh-upload-stemcell-from-cf-deployment/task.yml
+    input_mapping:
+      cf-deployment: cf-deployment
+      bbl-state: maxime-env-director-state
+    params:
+      BBL_STATE_DIR: test-rotation
+      INFRASTRUCTURE: google
+  - task: bosh-deploy-cf
+    file: cf-deployment-concourse-tasks/credhub-compatible/bosh-deploy/task.yml
+    input_mapping:
+      bbl-state: maxime-env-director-state
+      ops-files: cf-deployment
+      vars-files: maxime-env-director-state
+    params:
+      BBL_STATE_DIR: test-rotation
+      SYSTEM_DOMAIN: maxime-test.cf-app.com
+      OPS_FILES: |
+        operations/use-compiled-releases.yml
+  - task: run-bosh-cleanup
+    file: cf-deployment-concourse-tasks/bosh-cleanup/task.yml
+    input_mapping:
+      bbl-state: maxime-env-director-state
+    params:
+      BBL_STATE_DIR: test-rotation
+
+- name: delete-cf
+  serial: true
+  build_logs_to_retain: 100
+  plan:
+  - aggregate:
+    - get: cf-deployment-concourse-tasks
+    - get: maxime-env-director-state
+  - task: delete-deployment-cf
+    file: cf-deployment-concourse-tasks/bosh-delete-deployment/task.yml
+    input_mapping:
+      bbl-state: maxime-env-director-state
+    params:
+      BBL_STATE_DIR: test-rotation
+
+- name: bbl-destroy
+  serial: true
+  build_logs_to_retain: 100
+  plan:
+  - aggregate:
+    - get: maxime-env-director-state
+      passed: [delete-cf]
+    - get: cf-deployment-concourse-tasks
+  - task: destroy-infrastructure
+    file: cf-deployment-concourse-tasks/bbl-destroy/task.yml
+    input_mapping:
+      bbl-state: maxime-env-director-state
+    params:
+      BBL_GCP_SERVICE_ACCOUNT_KEY: google_account_creds.json
+      BBL_STATE_DIR: test-rotation
+    ensure:
+      put: maxime-env-director-state
+      params:
+        repository: updated-bbl-state
+        rebase: true
