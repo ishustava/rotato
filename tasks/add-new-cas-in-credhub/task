@@ -1,0 +1,15 @@
+#!/bin/bash -eux
+
+export BBL_STATE_DIRECTORY=${PWD}/bbl-state/${BBL_STATE_DIR}
+
+set +x
+    eval "$(bbl print-env)"
+set -x
+
+
+pushd rotato/rotation
+    export GO111MODULE=on
+    go build -o rotato
+
+    ./rotato add-new-cas
+popd
