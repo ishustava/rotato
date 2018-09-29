@@ -14,5 +14,5 @@ pushd rotato/rotation
     export GO111MODULE=on
     go build -o rotato
 
-    ./rotato ${ROTATE_CERTS}
+    ./rotato ${ROTATE_COMMAND}
 popd
