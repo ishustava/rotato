@@ -63,6 +63,6 @@ func regenerateCerts(rootCAs []credentials.Certificate, credHub *credhubClient.C
 			log.Printf("Regenerated %s\n", regenerateResult)
 		}
 	}
-	
+
 	return nil
 }

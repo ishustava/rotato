@@ -12,7 +12,7 @@ inputs:
 - name: rotato  # - This repo
 
 run:
-  path: rotato/tasks/add-new-cas-in-credhub/task
+  path: rotato/tasks/rotate/task
 
 params:
   BBL_STATE_DIR: bbl-state
@@ -24,3 +24,8 @@ params:
   BOSH_DEPLOYMENT: cf
   # - Required
   # - Name of the BOSH deployment for which CAs need to be rotated
+
+  ROTATE_COMMAND:
+  # - Required
+  # - Command to be passed to the rotation utility
+  # - Supported commands: add-new-cas, regenerate-certs
