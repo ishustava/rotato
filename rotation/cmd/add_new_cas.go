@@ -11,6 +11,7 @@ import (
 	"log"
 	"fmt"
 	"encoding/json"
+	"strings"
 )
 
 type AddNewCAsCommand struct {
@@ -46,7 +47,6 @@ func (cmd AddNewCAsCommand) Execute([]string) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Will rotate %d root CAs\n", len(rootCAs))
 
 	err = regenerateAndSetNewCAs(rootCAs, ch)
 	if err != nil {
@@ -84,11 +84,17 @@ func findRootCAs(findResults credentials.FindResults, ch *credhubClient.CredHub)
 		credential, err := ch.GetLatestCertificate(findResult.Name)
 		if err == nil && credential.Type == "certificate" {
 			if isRootCA(credential.Value) {
-				log.Printf("Found root CA: %s\n", credential.Name)
-				rootCAs = append(rootCAs, credential)
+				if strings.Count(credential.Value.Certificate, "-----BEGIN CERTIFICATE-----") > 1 {
+					log.Printf("Root CA %s is ready for step 1 of CA rotation\n", credential.Name)
+				} else {
+					log.Printf("Found root CA to rotate: %s\n", credential.Name)
+					rootCAs = append(rootCAs, credential)
+				}
 			}
 		}
 	}
+
+	log.Printf("Will regenerate %d root CAs\n", len(rootCAs))
 
 	return rootCAs, nil
 }
