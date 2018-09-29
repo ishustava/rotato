@@ -1,5 +1,8 @@
 #!/bin/bash -eux
 
+wget https://github.com/cloudfoundry/bosh-bootloader/releases/download/v6.10.3/bbl-v6.10.3_linux_x86-64 -O /usr/local/bin/bbl
+chmod +x /usr/local/bin/bbl
+
 export BBL_STATE_DIRECTORY=${PWD}/bbl-state/${BBL_STATE_DIR}
 
 set +x
