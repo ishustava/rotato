@@ -1,0 +1,146 @@
+resources:
+- name: cf-deployment-concourse-tasks
+  type: git
+  source:
+    uri: https://github.com/cloudfoundry/cf-deployment-concourse-tasks
+- name: cf-deployment
+  type: git
+  source:
+    uri: https://github.com/cloudfoundry/cf-deployment.git
+- name: rotato
+  type: git
+  source:
+    uri: https://github.com/ishustava/rotato
+- name: env-repo
+  type: git
+  source:
+    branch: master
+    uri: ((env_repo_github_uri))
+    private_key: ((hagrid_env_deploy_key))
+- name: trigger-rotation
+  type: time
+
+jobs:
+- name: manually-trigger-rotation
+  serial: true
+  build_logs_to_retain: 100
+  plan:
+  - put: trigger-rotation
+
+- name: step-1-add-new-cas
+  serial: true
+  build_logs_to_retain: 100
+  plan:
+  - get: trigger-rotation
+    passed: [manually-trigger-rotation]
+    trigger: true
+  - aggregate:
+    - get: env-repo
+    - get: rotato
+    - get: cf-deployment
+    - get: cf-deployment-concourse-tasks
+  - task: add-new-cas-in-credhub
+    file: rotato/tasks/rotate/task.yml
+    input_mapping:
+      bbl-state: env-repo
+    params:
+      BBL_STATE_DIR: rotation-cf/bbl-state
+      ROTATE_COMMAND: add-new-cas
+  - task: bosh-deploy-cf
+    file: cf-deployment-concourse-tasks/bosh-deploy/task.yml
+    input_mapping:
+      bbl-state: env-repo
+      ops-files: cf-deployment
+      vars-files: env-repo
+    params:
+      BBL_STATE_DIR: rotation-cf/bbl-state
+      SYSTEM_DOMAIN: ((system_domain))
+      OPS_FILES: |
+        operations/use-compiled-releases.yml
+        operations/scale-database-cluster.yml
+      DEPLOY_WITH_UPTIME_MEASUREMENTS: true
+      FAIL_ON_DOWNTIME: false
+      APP_PUSHABILITY_THRESHOLD: 5
+      HTTP_AVAILABILITY_THRESHOLD: 0
+      RECENT_LOGS_THRESHOLD: 11
+      STREAMING_LOGS_THRESHOLD: 3
+      APP_SYSLOG_AVAILABILITY_THRESHOLD: 5
+
+- name: step-2-regenerate-certs
+  serial: true
+  build_logs_to_retain: 100
+  plan:
+  - get: trigger-rotation
+    passed: [step-1-add-new-cas]
+    trigger: true
+  - aggregate:
+    - get: env-repo
+    - get: rotato
+    - get: cf-deployment
+    - get: cf-deployment-concourse-tasks
+  - task: regenerate-certs-in-credhub
+    file: rotato/tasks/rotate/task.yml
+    input_mapping:
+      bbl-state: env-repo
+    params:
+      BBL_STATE_DIR: rotation-cf/bbl-state
+      ROTATE_COMMAND: regenerate-certs
+  - task: bosh-deploy-cf
+    file: cf-deployment-concourse-tasks/bosh-deploy/task.yml
+    input_mapping:
+      bbl-state: env-repo
+      ops-files: cf-deployment
+      vars-files: env-repo
+    params:
+      BBL_STATE_DIR: rotation-cf/bbl-state
+      SYSTEM_DOMAIN: ((system_domain))
+      OPS_FILES: |
+        operations/use-compiled-releases.yml
+        operations/scale-database-cluster.yml
+      DEPLOY_WITH_UPTIME_MEASUREMENTS: true
+      FAIL_ON_DOWNTIME: false
+      APP_PUSHABILITY_THRESHOLD: 5
+      HTTP_AVAILABILITY_THRESHOLD: 0
+      RECENT_LOGS_THRESHOLD: 11
+      STREAMING_LOGS_THRESHOLD: 3
+      APP_SYSLOG_AVAILABILITY_THRESHOLD: 5
+
+
+- name: step-3-remove-old-cas
+  serial: true
+  build_logs_to_retain: 100
+  plan:
+  - get: trigger-rotation
+    passed: [step-2-regenerate-certs]
+    trigger: true
+  - aggregate:
+    - get: env-repo
+    - get: rotato
+    - get: cf-deployment
+    - get: cf-deployment-concourse-tasks
+  - task: remove-old-cas-in-credhub
+    file: rotato/tasks/rotate/task.yml
+    input_mapping:
+      bbl-state: env-repo
+    params:
+      BBL_STATE_DIR: rotation-cf/bbl-state
+      ROTATE_COMMAND: remove-old-cas
+  - task: bosh-deploy-cf
+    file: cf-deployment-concourse-tasks/bosh-deploy/task.yml
+    input_mapping:
+      bbl-state: env-repo
+      ops-files: cf-deployment
+      vars-files: env-repo
+    params:
+      BBL_STATE_DIR: rotation-cf/bbl-state
+      SYSTEM_DOMAIN: ((system_domain))
+      OPS_FILES: |
+        operations/use-compiled-releases.yml
+        operations/scale-database-cluster.yml
+      DEPLOY_WITH_UPTIME_MEASUREMENTS: true
+      FAIL_ON_DOWNTIME: false
+      APP_PUSHABILITY_THRESHOLD: 5
+      HTTP_AVAILABILITY_THRESHOLD: 0
+      RECENT_LOGS_THRESHOLD: 11
+      STREAMING_LOGS_THRESHOLD: 3
+      APP_SYSLOG_AVAILABILITY_THRESHOLD: 5
