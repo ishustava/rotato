@@ -6,6 +6,7 @@ resources:
 - name: cf-deployment
   type: git
   source:
+    branch: fix-log-cache-cas
     uri: https://github.com/cloudfoundry/cf-deployment.git
 - name: rotato
   type: git
@@ -56,10 +57,11 @@ jobs:
       BBL_STATE_DIR: rotation-cf/bbl-state
       SYSTEM_DOMAIN: ((system_domain))
       OPS_FILES: |
+        operations/aws.yml
         operations/use-compiled-releases.yml
         operations/scale-database-cluster.yml
       DEPLOY_WITH_UPTIME_MEASUREMENTS: true
-      FAIL_ON_DOWNTIME: false
+      FAIL_ON_DOWNTIME: true
       APP_PUSHABILITY_THRESHOLD: 5
       HTTP_AVAILABILITY_THRESHOLD: 0
       RECENT_LOGS_THRESHOLD: 11
@@ -95,10 +97,11 @@ jobs:
       BBL_STATE_DIR: rotation-cf/bbl-state
       SYSTEM_DOMAIN: ((system_domain))
       OPS_FILES: |
+        operations/aws.yml
         operations/use-compiled-releases.yml
         operations/scale-database-cluster.yml
       DEPLOY_WITH_UPTIME_MEASUREMENTS: true
-      FAIL_ON_DOWNTIME: false
+      FAIL_ON_DOWNTIME: true
       APP_PUSHABILITY_THRESHOLD: 5
       HTTP_AVAILABILITY_THRESHOLD: 0
       RECENT_LOGS_THRESHOLD: 11
@@ -135,10 +138,11 @@ jobs:
       BBL_STATE_DIR: rotation-cf/bbl-state
       SYSTEM_DOMAIN: ((system_domain))
       OPS_FILES: |
+        operations/aws.yml
         operations/use-compiled-releases.yml
         operations/scale-database-cluster.yml
       DEPLOY_WITH_UPTIME_MEASUREMENTS: true
-      FAIL_ON_DOWNTIME: false
+      FAIL_ON_DOWNTIME: true
       APP_PUSHABILITY_THRESHOLD: 5
       HTTP_AVAILABILITY_THRESHOLD: 0
       RECENT_LOGS_THRESHOLD: 11
