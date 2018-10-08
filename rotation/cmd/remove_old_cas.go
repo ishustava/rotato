@@ -6,6 +6,7 @@ import (
 	"code.cloudfoundry.org/credhub-cli/commands"
 	"github.com/ishustava/rotato/rotation/certificates"
 	"code.cloudfoundry.org/credhub-cli/credhub/credentials"
+	"log"
 )
 
 type RemoveOldCAsCommand struct {
@@ -53,6 +54,8 @@ func (cmd RemoveOldCAsCommand) Execute([]string) error {
 func unconcatenateRootCAs(rootCAs []credentials.Certificate, credHub *credhubClient.CredHub) error {
 	for _, ca := range rootCAs {
 		ca.Value.Certificate = ca.Value.Ca
+
+		log.Printf("Removing old version of the CA %s. Warning: All certificates will be regenerated", ca.Name)
 
 		_, err := credHub.SetCertificate(ca.Name, ca.Value)
 		if err != nil {
